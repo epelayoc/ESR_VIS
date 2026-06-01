@@ -78,12 +78,13 @@ else:
 # -----------------------------------------------------------------------------
 # 4. Tab Layout & Visualizations
 # -----------------------------------------------------------------------------
-# Create 4 tabs for different analytical perspectives
-tab1, tab2, tab3, tab4 = st.tabs([
+# Create 5 tabs for different analytical perspectives
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📈 Trend Analysis", 
     "🗺️ Strengths Map (Heatmap)", 
     "📊 Volume & Calls", 
-    "⚠️ Issue Analyzer"
+    "⚠️ Issue Analyzer",
+    "🔄 Score vs Critique"
 ])
 
 # --- TAB 1: TEMPORAL EVOLUTION (Original Line Chart) ---
@@ -134,7 +135,6 @@ with tab2:
         pivot_heat = df_heat.pivot(index='Area', columns='Block', values='Average_Score')
         
         fig2, ax2 = plt.subplots(figsize=(10, 6))
-        # RdYlGn gives a Red-Yellow-Green color scale (Red=Low, Green=High)
         sns.heatmap(pivot_heat, annot=True, cmap="RdYlGn", fmt=".2f", linewidths=.5, ax=ax2)
         ax2.set_ylabel("R&D Area")
         ax2.set_xlabel("Evaluation Block")
@@ -177,3 +177,59 @@ with tab4:
         st.plotly_chart(fig4, use_container_width=True)
     else:
         st.success("✅ No non-score issues found for this specific filter combination!")
+
+# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (NEW) ---
+with tab5:
+    st.subheader("⚖️ Critique Density vs. Evaluation Scores")
+    st.markdown("Identify if higher frequencies of keywords (*Howevers, Shortcomings, etc.*) directly correlate with drops in evaluation scores over the years.")
+    
+    # 1. Calculate Average Score per Year
+    df_score_trend = df_filtered.groupby('Year').agg(
+        score_sum=('Sum', 'sum'), score_count=('Count', 'sum')
+    ).reset_index()
+    df_score_trend = df_score_trend[df_score_trend['score_count'] > 0]
+    df_score_trend['Average Score'] = df_score_trend['score_sum'] / df_score_trend['score_count']
+    
+    # 2. Calculate Mean Appearance of Critique Keywords per Year (Sum / Count)
+    df_issue_trend = df_issues_filtered.groupby(['Year', 'Metric']).agg(
+        issue_sum=('Sum', 'sum'), issue_count=('Count', 'sum')
+    ).reset_index()
+    df_issue_trend = df_issue_trend[df_issue_trend['issue_count'] > 0]
+    df_issue_trend['Mean Appearance'] = df_issue_trend['issue_sum'] / df_issue_trend['issue_count']
+    
+    if not df_score_trend.empty and not df_issue_trend.empty:
+        # Create a side-by-side view to easily track macro behaviors
+        col_left, col_right = st.columns(2)
+        
+        with col_left:
+            fig_score = px.line(
+                df_score_trend, x='Year', y='Average Score', 
+                title="Global Average Score Evolution", markers=True
+            )
+            fig_score.update_traces(line_color="#2ca02c", linewidth=3) # Vibrant green line
+            st.plotly_chart(fig_score, use_container_width=True)
+            
+        with col_right:
+            fig_issue = px.line(
+                df_issue_trend, x='Year', y='Mean Appearance', color='Metric', 
+                title="Critique Keywords: Mean Density per Evaluation", markers=True
+            )
+            fig_issue.update_layout(yaxis_title="Mean Appearance (Σ Sum / Σ Count)")
+            st.plotly_chart(fig_issue, use_container_width=True)
+            
+        # 3. Dynamic Correlation Data Table
+        st.markdown("##### 📋 Consolidated Correlation Matrix")
+        df_issue_pivot = df_issue_trend.pivot(index='Year', columns='Metric', values='Mean Appearance').reset_index()
+        df_combined = pd.merge(df_score_trend[['Year', 'Average Score']], df_issue_pivot, on='Year', how='outer')
+        
+        # Sort chronologically
+        df_combined = df_combined.sort_values('Year')
+        
+        # Automatically format all generated metric float columns to 3 decimals
+        float_cols = [col for col in df_combined.columns if col != 'Year']
+        st.dataframe(
+            df_combined.style.format({col: '{:.3f}' for col in float_cols}), 
+            use_container_width=True
+        )
+    else:
+        st.info("Insufficient data available to compile a comparative trend line.")
