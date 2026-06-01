@@ -177,7 +177,7 @@ with tab4:
     else:
         st.success("✅ No non-score issues found for this specific filter combination!")
 
-# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (UPDATED) ---
+# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (UPDATED FOR 'HOWEVERS') ---
 with tab5:
     st.subheader("⚖️ Critique Density vs. Evaluation Scores Dynamics")
     st.markdown("Analyze metrics and scores together to identify trends and negative correlations.")
@@ -207,7 +207,6 @@ with tab5:
         
         with col_left:
             st.markdown("##### 1. Unified Temporal Chart (Dual Y-Axis)")
-            # Using make_subplots to cleanly overlay different data dimensions
             fig_combined = make_subplots(specs=[[{"secondary_y": True}]])
             
             # Primary axis: Average Score (Vibrant Green)
@@ -220,7 +219,7 @@ with tab5:
                 secondary_y=False,
             )
             
-            # Secondary axis: Critique Metrics
+            # Secondary axis: All Critique Metrics
             for metric in critique_metrics:
                 fig_combined.add_trace(
                     go.Scatter(
@@ -240,28 +239,32 @@ with tab5:
             st.plotly_chart(fig_combined, use_container_width=True)
             
         with col_right:
-            st.markdown("##### 2. Direct Correlation Chart (X: Score, Y: Critique)")
+            st.markdown("##### 2. Direct Correlation Chart (X: Score, Y: Howevers)")
             
-            # Melt the pivot data to easily feed Plotly Express color parameter
-            df_melted = df_combined.melt(
-                id_vars=['Year', 'Average Score'], 
-                value_vars=critique_metrics, 
-                var_name='Critique Metric', 
-                value_name='Mean Appearance'
-            )
+            # Target metric string definition
+            target_metric = 'Howevers' 
             
-            fig_corr = px.scatter(
-                df_melted, 
-                x='Average Score', 
-                y='Mean Appearance', 
-                color='Critique Metric',
-                hover_data=['Year'],
-                title="Critique Frequency (Y) plotted against Average Score (X)",
-                labels={'Average Score': 'Average Score (X Axis)', 'Mean Appearance': 'Critique Mean Appearance (Y Axis)'}
-            )
-            # Make markers stand out
-            fig_corr.update_traces(marker=dict(size=11, line=dict(width=1, color='DarkSlateGrey')))
-            st.plotly_chart(fig_corr, use_container_width=True)
+            # Fallback handling in case the exact name in Excel capitalization differs (e.g., 'however', 'HOWEVERS')
+            if target_metric not in df_combined.columns:
+                # Try to find a case-insensitive match just in case
+                matched_cols = [c for c in df_combined.columns if target_metric.lower() in c.lower()]
+                if matched_cols:
+                    target_metric = matched_cols[0]
+            
+            if target_metric in df_combined.columns:
+                fig_corr = px.scatter(
+                    df_combined, 
+                    x='Average Score', 
+                    y=target_metric, 
+                    hover_data=['Year'],
+                    title=f"'{target_metric}' Frequency (Y) plotted against Average Score (X)",
+                    labels={'Average Score': 'Average Score (X Axis)', target_metric: f'{target_metric} Mean Appearance (Y Axis)'}
+                )
+                # Style the markers and add a trend/line if necessary
+                fig_corr.update_traces(marker=dict(size=12, color='#d62728', line=dict(width=1, color='DarkSlateGrey')))
+                st.plotly_chart(fig_corr, use_container_width=True)
+            else:
+                st.info(f"Could not render the scatter plot because the metric exact name '{target_metric}' was not found in this filtered slice.")
             
         # 3. Dynamic Correlation Data Table
         st.markdown("##### 📋 Consolidated Correlation Matrix")
