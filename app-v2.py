@@ -31,15 +31,19 @@ except FileNotFoundError:
 df_scores = df[df['Metric'] == 'Score']
 
 # -----------------------------------------------------------------------------
-# 2. Sidebar Filters
+# 2. Sidebar Filters (3 Filters Total)
 # -----------------------------------------------------------------------------
 st.sidebar.header("⚙️ Selection Filters")
 
-# Area Filter (Single selection with "All" option to aggregate all 4 areas)
+# Filter 1: Area (Single selection with "All" option)
 available_areas = ["All"] + sorted(list(df_scores['Area'].dropna().unique()))
 selected_area = st.sidebar.selectbox("Select Area:", available_areas)
 
-# Block Filter (Multi-select, all selected by default)
+# Filter 2: Type (NEW - Single selection with "All" option)
+available_types = ["All"] + sorted(list(df_scores['Type'].dropna().unique()))
+selected_type = st.sidebar.selectbox("Select Type:", available_types)
+
+# Filter 3: Block (Multi-select, all selected by default)
 available_blocks = sorted(list(df_scores['Block'].dropna().unique()))
 selected_blocks = st.sidebar.multiselect(
     "Block Selection:", 
@@ -52,10 +56,15 @@ selected_blocks = st.sidebar.multiselect(
 # -----------------------------------------------------------------------------
 df_filtered = df_scores.copy()
 
-# Fix: Changed "Todas" to "All" to correctly skip filtering when "All" is chosen
+# Apply Area filter if a specific one is chosen
 if selected_area != "All":
     df_filtered = df_filtered[df_filtered['Area'] == selected_area]
 
+# Apply Type filter if a specific one is chosen
+if selected_type != "All":
+    df_filtered = df_filtered[df_filtered['Type'] == selected_type]
+
+# Apply Block filter
 if selected_blocks:
     df_filtered = df_filtered[df_filtered['Block'].isin(selected_blocks)]
 else:
@@ -65,7 +74,7 @@ else:
 # -----------------------------------------------------------------------------
 # 4. Aggregation and Total Calculations (Sum / Count)
 # -----------------------------------------------------------------------------
-# If "All" is selected, this groups all areas together per Year and Block
+# Data is aggregated by Year and Block based on the active row filters above
 df_scores_avg = df_filtered.groupby(['Year', 'Block']).agg(
     total_sum=('Sum', 'sum'),
     total_count=('Count', 'sum')
@@ -101,7 +110,8 @@ with col1:
             ax=ax
         )
         
-        ax.set_title(f"Mean Scores Evolution (Area: {selected_area})", fontsize=12, pad=15)
+        # Updated chart title to display both selected Area and Type
+        ax.set_title(f"Mean Scores Evolution (Area: {selected_area} | Type: {selected_type})", fontsize=12, pad=15)
         ax.set_ylabel("Mean Score (Σ Sum / Σ Count)", fontsize=10)
         ax.set_xlabel("Year", fontsize=10)
         ax.grid(True, linestyle="--", alpha=0.5)
@@ -113,19 +123,4 @@ with col1:
         st.info("No available data for the selected combination.")
 
 with col2:
-    st.subheader("📌 Selection Summary")
-    st.write(f"**Area:** {selected_area}")
-    st.write(f"**Blocks ({len(selected_blocks)}):**")
-    st.write(", ".join(selected_blocks))
-    
-    if not df_scores_avg.empty:
-        global_sum = df_scores_avg['total_sum'].sum()
-        global_count = df_scores_avg['total_count'].sum()
-        global_avg = global_sum / global_count if global_count > 0 else 0
-        st.metric(label="Filtered Global Mean Score", value=f"{global_avg:.2f}")
-
-st.subheader("📋 Calculated Data Table")
-if not df_scores_avg.empty:
-    df_display = df_scores_avg.copy()
-    df_display.columns = ['Year', 'Block', 'Total Sum', 'Total Count', 'Mean Score']
-    st.dataframe(df_display.style.format({'Mean Score': '{:.3f}'}), use_container_width=True)
+    st.subheader("
