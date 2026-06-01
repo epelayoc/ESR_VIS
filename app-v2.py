@@ -177,7 +177,7 @@ with tab4:
     else:
         st.success("✅ No non-score issues found for this specific filter combination!")
 
-# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (UPDATED: LINE & BAR) ---
+# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (DYNAMIC METRIC FIX) ---
 with tab5:
     st.subheader("⚖️ Critique Density vs. Evaluation Scores Dynamics")
     st.markdown("Analyze metrics and scores together to identify trends and negative correlations.")
@@ -201,6 +201,18 @@ with tab5:
         df_issue_pivot = df_issue_trend.pivot(index='Year', columns='Metric', values='Mean Appearance').reset_index()
         df_combined = pd.merge(df_score_trend[['Year', 'Average Score']], df_issue_pivot, on='Year', how='outer').sort_values('Year')
         critique_metrics = [col for col in df_issue_pivot.columns if col != 'Year']
+        
+        # ---------------------------------------------------------------------
+        # NEW: Dynamic Dropdown Selector to prevent string matching errors
+        # ---------------------------------------------------------------------
+        st.markdown("### 🎯 Interactive Focus Target")
+        selected_target_metric = st.selectbox(
+            "Select which critique metric to plot on the right-hand bar chart:",
+            options=critique_metrics,
+            index=0 if critique_metrics else None,
+            key="tab5_metric_selector"
+        )
+        st.markdown("---")
         
         # Display side-by-side updated graphs
         col_left, col_right = st.columns(2)
@@ -239,17 +251,9 @@ with tab5:
             st.plotly_chart(fig_combined, use_container_width=True)
             
         with col_right:
-            st.markdown("##### 2. Direct Correlation Chart (X: Score, Y: Howevers)")
+            st.markdown(f"##### 2. Direct Correlation Chart (X: Score, Y: {selected_target_metric})")
             
-            target_metric = 'Howevers' 
-            
-            # Fallback handling for text case matching
-            if target_metric not in df_combined.columns:
-                matched_cols = [c for c in df_combined.columns if target_metric.lower() in c.lower()]
-                if matched_cols:
-                    target_metric = matched_cols[0]
-            
-            if target_metric in df_combined.columns:
+            if selected_target_metric:
                 # To make the relationship readable, sort by Average Score ascending
                 df_sorted_by_score = df_combined.sort_values('Average Score')
                 
@@ -259,15 +263,15 @@ with tab5:
                 fig_corr = px.bar(
                     df_sorted_by_score, 
                     x='Score_Label', 
-                    y=target_metric, 
+                    y=selected_target_metric, 
                     hover_data=['Year', 'Average Score'],
-                    title=f"Distribution of '{target_metric}' across Ranked Average Scores",
-                    labels={'Score_Label': 'Average Score (X Axis - Ranked)', target_metric: f'{target_metric} Mean Appearance (Y Axis)'}
+                    title=f"Distribution of '{selected_target_metric}' across Ranked Average Scores",
+                    labels={'Score_Label': 'Average Score (X Axis - Ranked)', selected_target_metric: f'{selected_target_metric} Mean Appearance'}
                 )
                 fig_corr.update_traces(marker_color='#d62728', marker_line_color='DarkSlateGrey', marker_line_width=1)
                 st.plotly_chart(fig_corr, use_container_width=True)
             else:
-                st.info(f"Could not render the chart because the metric exact name '{target_metric}' was not found.")
+                st.info("No text critique metrics available to map in this view.")
             
         # 3. Dynamic Correlation Data Table
         st.markdown("##### 📋 Consolidated Correlation Matrix")
