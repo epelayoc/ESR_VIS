@@ -123,4 +123,20 @@ with col1:
         st.info("No available data for the selected combination.")
 
 with col2:
-    st.subheader("
+    st.subheader("📌 Selection Summary")
+    st.write(f"**Area:** {selected_area}")
+    st.write(f"**Type:** {selected_type}")
+    st.write(f"**Blocks ({len(selected_blocks)}):**")
+    st.write(", ".join(selected_blocks))
+    
+    if not df_scores_avg.empty:
+        global_sum = df_scores_avg['total_sum'].sum()
+        global_count = df_scores_avg['total_count'].sum()
+        global_avg = global_sum / global_count if global_count > 0 else 0
+        st.metric(label="Filtered Global Mean Score", value=f"{global_avg:.2f}")
+
+st.subheader("📋 Calculated Data Table")
+if not df_scores_avg.empty:
+    df_display = df_scores_avg.copy()
+    df_display.columns = ['Year', 'Block', 'Total Sum', 'Total Count', 'Mean Score']
+    st.dataframe(df_display.style.format({'Mean Score': '{:.3f}'}), use_container_width=True)
