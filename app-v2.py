@@ -1,13 +1,13 @@
-import streamlit as st
+Timport streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Configuración de la página de Streamlit
-st.set_page_config(page_title="Visualizador de Informes I+D", layout="wide", page_icon="📊")
+st.set_page_config(page_title="ESR_VIEWER", layout="wide", page_icon="📊")
 
-st.title("📊 Evolución de Scores - Informes de Evaluación de I+D")
-st.markdown("Esta aplicación web interactiva permite filtrar y analizar la evolución temporal de los scores promedio de los proyectos de I+D.")
+st.title("📊 Scores Evolution - Year")
+st.markdown("Temporal evolution of scores in ESR reports")
 
 # -----------------------------------------------------------------------------
 # 1. Carga de datos de forma dinámica
@@ -25,8 +25,8 @@ def load_data(path):
 try:
     df = load_data(file_path)
 except FileNotFoundError:
-    st.error(f"❌ No se encontró el archivo **'{file_path}'** en el repositorio.")
-    st.info("💡 **Solución:** Asegúrate de subir tu archivo Excel con ese nombre exacto a la raíz de tu repositorio de GitHub junto a este script python.")
+    st.error(f"❌ File not found **'{file_path}'** in repository.")
+    st.info("💡 **Solution:** Check your excel file.")
     st.stop()
 
 # Filtrar por Métrica == 'Score' desde el inicio
@@ -38,13 +38,13 @@ df_scores = df[df['Metric'] == 'Score']
 st.sidebar.header("⚙️ Filtros de Selección")
 
 # Filtro de Área (Selección única con opción de ver todas)
-areas_disponibles = ["Todas"] + sorted(list(df_scores['Area'].dropna().unique()))
-selected_area = st.sidebar.selectbox("Selecciona el Área:", areas_disponibles)
+areas_disponibles = ["All"] + sorted(list(df_scores['Area'].dropna().unique()))
+selected_area = st.sidebar.selectbox("Select Area:", areas_disponibles)
 
 # Filtro de Bloque (Selección múltiple, por defecto todos seleccionados)
 bloques_disponibles = sorted(list(df_scores['Block'].dropna().unique()))
 selected_blocks = st.sidebar.multiselect(
-    "Selecciona los Bloques:", 
+    "Block selection:", 
     options=bloques_disponibles, 
     default=bloques_disponibles
 )
@@ -60,7 +60,7 @@ if selected_area != "Todas":
 if selected_blocks:
     df_filtered = df_filtered[df_filtered['Block'].isin(selected_blocks)]
 else:
-    st.warning("⚠️ Por favor, selecciona al menos un **Bloque** en la barra lateral para visualizar los resultados.")
+    st.warning("⚠️ Select at least one block.")
     st.stop()
 
 # -----------------------------------------------------------------------------
@@ -101,8 +101,8 @@ with col1:
             ax=ax
         )
         
-        ax.set_title(f"Evolución de Scores Promedio (Área: {selected_area})", fontsize=12, pad=15)
-        ax.set_ylabel("Score Promedio (Σ Sum / Σ Count)", fontsize=10)
+        ax.set_title(f"Mean scores evolution (Área: {selected_area})", fontsize=12, pad=15)
+        ax.set_ylabel("Mean Score (Σ Sum / Σ Count)", fontsize=10)
         ax.set_xlabel("Año (Year)", fontsize=10)
         ax.grid(True, linestyle="--", alpha=0.5)
         plt.xticks(rotation=45)
@@ -110,12 +110,12 @@ with col1:
         
         st.pyplot(fig)
     else:
-        st.info("No hay datos que coincidan con la combinación de filtros seleccionada.")
+        st.info("No available data.")
 
 with col2:
-    st.subheader("📌 Resumen de Filtros")
-    st.write(f"**Área Seleccionada:** {selected_area}")
-    st.write(f"**Bloques Seleccionados ({len(selected_blocks)}):**")
+    st.subheader("📌 Summary selection")
+    st.write(f"**Area:** {selected_area}")
+    st.write(f"**Blocks ({len(selected_blocks)}):**")
     st.write(", ".join(selected_blocks))
     
     if not df_scores_avg.empty:
@@ -124,8 +124,8 @@ with col2:
         global_avg = global_sum / global_count if global_count > 0 else 0
         st.metric(label="Score Promedio Global Filtrado", value=f"{global_avg:.2f}")
 
-st.subheader("📋 Tabla de Datos Calculados")
+st.subheader("📋 Calculated data")
 if not df_scores_avg.empty:
     df_display = df_scores_avg.copy()
-    df_display.columns = ['Año', 'Bloque', 'Suma Total (Sum)', 'Conteo Total (Count)', 'Score Promedio (Ponderado)']
-    st.dataframe(df_display.style.format({'Score Promedio (Ponderado)': '{:.3f}'}), use_container_width=True)
+    df_display.columns = ['Año', 'Block', 'Suma Total (Sum)', 'Count', 'Mean Score']
+    st.dataframe(df_display.style.format({'Mean Score': '{:.3f}'}), use_container_width=True)
