@@ -3,90 +3,90 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Configuración de la página de Streamlit
+# Streamlit page configuration
 st.set_page_config(page_title="ESR_VIEWER", layout="wide", page_icon="📊")
 
 st.title("📊 Scores Evolution - Year")
 st.markdown("Temporal evolution of scores in ESR reports")
 
 # -----------------------------------------------------------------------------
-# 1. Carga de datos de forma dinámica
+# 1. Data Loading
 # -----------------------------------------------------------------------------
-# En Streamlit Cloud, si subes el archivo 'esr_data_long.xlsx' a la raíz de tu 
-# repositorio de GitHub junto a este script, se leerá automáticamente.
 file_path = "esr_data_long.xlsx"
 
 @st.cache_data
 def load_data(path):
     df = pd.read_excel(path)
-    df['Year'] = df['Year'].astype(str) # Asegurar tipo string para el año
+    df['Year'] = df['Year'].astype(str) # Ensure string type for year
     return df
 
 try:
     df = load_data(file_path)
 except FileNotFoundError:
-    st.error(f"❌ File not found **'{file_path}'** in repository.")
-    st.info("💡 **Solution:** Check your excel file.")
+    st.error(f"❌ File not found: **'{file_path}'** in repository.")
+    st.info("💡 **Solution:** Please ensure your Excel file is uploaded to the repository.")
     st.stop()
 
-# Filtrar por Métrica == 'Score' desde el inicio
+# Filter by Metric == 'Score' from the start
 df_scores = df[df['Metric'] == 'Score']
 
 # -----------------------------------------------------------------------------
-# 2. Creación de Filtros en la Barra Lateral (Sidebar)
+# 2. Sidebar Filters
 # -----------------------------------------------------------------------------
-st.sidebar.header("⚙️ Selection filter")
+st.sidebar.header("⚙️ Selection Filters")
 
-# Filtro de Área (Selección única con opción de ver todas)
-areas_disponibles = ["All"] + sorted(list(df_scores['Area'].dropna().unique()))
-selected_area = st.sidebar.selectbox("Select Area:", areas_disponibles)
+# Area Filter (Single selection with "All" option to aggregate all 4 areas)
+available_areas = ["All"] + sorted(list(df_scores['Area'].dropna().unique()))
+selected_area = st.sidebar.selectbox("Select Area:", available_areas)
 
-# Filtro de Bloque (Selección múltiple, por defecto todos seleccionados)
-bloques_disponibles = sorted(list(df_scores['Block'].dropna().unique()))
+# Block Filter (Multi-select, all selected by default)
+available_blocks = sorted(list(df_scores['Block'].dropna().unique()))
 selected_blocks = st.sidebar.multiselect(
-    "Block selection:", 
-    options=bloques_disponibles, 
-    default=bloques_disponibles
+    "Block Selection:", 
+    options=available_blocks, 
+    default=available_blocks
 )
 
 # -----------------------------------------------------------------------------
-# 3. Aplicación de Filtros Dinámicos
+# 3. Dynamic Filtering Application
 # -----------------------------------------------------------------------------
 df_filtered = df_scores.copy()
 
-if selected_area != "Todas":
+# Fix: Changed "Todas" to "All" to correctly skip filtering when "All" is chosen
+if selected_area != "All":
     df_filtered = df_filtered[df_filtered['Area'] == selected_area]
 
 if selected_blocks:
     df_filtered = df_filtered[df_filtered['Block'].isin(selected_blocks)]
 else:
-    st.warning("⚠️ Select at least one block.")
+    st.warning("⚠️ Please select at least one block.")
     st.stop()
 
 # -----------------------------------------------------------------------------
-# 4. Agrupación y Cálculo de Totales (Suma / Count)
+# 4. Aggregation and Total Calculations (Sum / Count)
 # -----------------------------------------------------------------------------
+# If "All" is selected, this groups all areas together per Year and Block
 df_scores_avg = df_filtered.groupby(['Year', 'Block']).agg(
     total_sum=('Sum', 'sum'),
     total_count=('Count', 'sum')
 ).reset_index()
 
-# Filtrar para evitar la división por cero si total_count fuera 0
+# Filter out rows to prevent division by zero if total_count is 0
 df_scores_avg = df_scores_avg[df_scores_avg['total_count'] > 0]
 
-# Calcular el Score Promedio Ponderado
+# Calculate the weighted Mean Score
 df_scores_avg['Average_Score'] = df_scores_avg['total_sum'] / df_scores_avg['total_count']
 
-# Ordenar cronológicamente por año para la gráfica de líneas
+# Sort chronologically by year for line plotting
 df_scores_avg = df_scores_avg.sort_values('Year')
 
 # -----------------------------------------------------------------------------
-# 5. Visualizaciones y Reporte en Pantalla
+# 5. Visualizations and Layout Reports
 # -----------------------------------------------------------------------------
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.subheader("📈 Temporal evolution")
+    st.subheader("📈 Temporal Evolution")
     if not df_scores_avg.empty:
         fig, ax = plt.subplots(figsize=(10, 5.5))
         
@@ -101,19 +101,19 @@ with col1:
             ax=ax
         )
         
-        ax.set_title(f"Mean scores evolution (Área: {selected_area})", fontsize=12, pad=15)
+        ax.set_title(f"Mean Scores Evolution (Area: {selected_area})", fontsize=12, pad=15)
         ax.set_ylabel("Mean Score (Σ Sum / Σ Count)", fontsize=10)
-        ax.set_xlabel("Año (Year)", fontsize=10)
+        ax.set_xlabel("Year", fontsize=10)
         ax.grid(True, linestyle="--", alpha=0.5)
         plt.xticks(rotation=45)
         plt.tight_layout()
         
         st.pyplot(fig)
     else:
-        st.info("No available data.")
+        st.info("No available data for the selected combination.")
 
 with col2:
-    st.subheader("📌 Summary selection")
+    st.subheader("📌 Selection Summary")
     st.write(f"**Area:** {selected_area}")
     st.write(f"**Blocks ({len(selected_blocks)}):**")
     st.write(", ".join(selected_blocks))
@@ -122,10 +122,10 @@ with col2:
         global_sum = df_scores_avg['total_sum'].sum()
         global_count = df_scores_avg['total_count'].sum()
         global_avg = global_sum / global_count if global_count > 0 else 0
-        st.metric(label="Score Promedio Global Filtrado", value=f"{global_avg:.2f}")
+        st.metric(label="Filtered Global Mean Score", value=f"{global_avg:.2f}")
 
-st.subheader("📋 Calculated data")
+st.subheader("📋 Calculated Data Table")
 if not df_scores_avg.empty:
     df_display = df_scores_avg.copy()
-    df_display.columns = ['Año', 'Block', 'Suma Total (Sum)', 'Count', 'Mean Score']
+    df_display.columns = ['Year', 'Block', 'Total Sum', 'Total Count', 'Mean Score']
     st.dataframe(df_display.style.format({'Mean Score': '{:.3f}'}), use_container_width=True)
