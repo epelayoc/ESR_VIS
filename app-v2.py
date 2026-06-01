@@ -37,7 +37,12 @@ df_issues = df[df['Metric'] != 'Score']
 # -----------------------------------------------------------------------------
 # 2. Sidebar Filters (3 Filters)
 # -----------------------------------------------------------------------------
-st.sidebar.header("⚙️ Selection Filters")
+#st.sidebar.header("⚙️ Selection Filters")
+# Big icon on top
+st.sidebar.markdown("# 🎛️") 
+
+# Your existing header text underneath it
+st.sidebar.header("Selection Filters")
 
 # Filter 1: Area 
 available_areas = ["All"] + sorted(list(df_scores['Area'].dropna().unique()))
