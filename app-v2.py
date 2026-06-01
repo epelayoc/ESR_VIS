@@ -35,7 +35,7 @@ df_scores = df[df['Metric'] == 'Score']
 # -----------------------------------------------------------------------------
 # 2. Creación de Filtros en la Barra Lateral (Sidebar)
 # -----------------------------------------------------------------------------
-st.sidebar.header("⚙️ Filtros de Selección")
+st.sidebar.header("⚙️ Selection filter")
 
 # Filtro de Área (Selección única con opción de ver todas)
 areas_disponibles = ["All"] + sorted(list(df_scores['Area'].dropna().unique()))
@@ -86,7 +86,7 @@ df_scores_avg = df_scores_avg.sort_values('Year')
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.subheader("📈 Gráfico de Evolución Temporal")
+    st.subheader("📈 Temporal evolution")
     if not df_scores_avg.empty:
         fig, ax = plt.subplots(figsize=(10, 5.5))
         
