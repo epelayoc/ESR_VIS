@@ -206,7 +206,8 @@ with tab5:
                 df_score_trend, x='Year', y='Average Score', 
                 title="Global Average Score Evolution", markers=True
             )
-            fig_score.update_traces(line_color="#2ca02c", linewidth=3) # Vibrant green line
+            # FIXED: Changed linewidth to line_width
+            fig_score.update_traces(line_color="#2ca02c", line_width=3) 
             st.plotly_chart(fig_score, use_container_width=True)
             
         with col_right:
