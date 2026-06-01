@@ -234,7 +234,7 @@ with tab5:
                 hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
-            fig_combined.update_yaxes(title_text="<b>Average Score</b> (Green)", secondary_y=False)
+            fig_combined.update_yaxes(title_text="<b>Average Score</b> (Orange)", secondary_y=False)
             fig_combined.update_yaxes(title_text="<b>Critique Mean Appearance</b> (Others)", secondary_y=True)
             st.plotly_chart(fig_combined, use_container_width=True)
             
