@@ -214,7 +214,7 @@ with tab5:
                 go.Scatter(
                     x=df_combined['Year'], y=df_combined['Average Score'], 
                     name="Average Score (Left Axis)", mode='lines+markers',
-                    line=dict(color="#2ca02c", width=4)
+                    line=dict(color="#ff9f1c", width=5)
                 ),
                 secondary_y=False,
             )
