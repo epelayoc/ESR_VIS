@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # Streamlit page configuration
 st.set_page_config(page_title="ESR_VIEWER", layout="wide", page_icon="📊")
@@ -118,7 +120,6 @@ with tab2:
     st.subheader("Global Strengths & Weaknesses Matrix")
     st.markdown("Compares performance across all Areas (ignoring the Area filter) for context.")
     
-    # Use the base df_scores (only applying Type and Block filters) to show all Areas
     df_heat_base = df_scores.copy()
     if selected_type != "All":
         df_heat_base = df_heat_base[df_heat_base['Type'] == selected_type]
@@ -147,7 +148,6 @@ with tab3:
     st.subheader("Project Volume & Call Distribution")
     st.markdown("Shows the total volume of evaluations based on your active filters.")
     
-    # Group by Year and Call, summing the 'Count' column
     df_vol = df_filtered.groupby(['Year', 'Call'])['Count'].sum().reset_index()
     
     if not df_vol.empty:
@@ -166,7 +166,6 @@ with tab4:
     st.markdown("Visualizes other metrics (e.g., Minor Issues, Weaknesses) present in the reports.")
     
     if not df_issues_filtered.empty:
-        # Group by Block and the specific Metric type
         df_iss_agg = df_issues_filtered.groupby(['Block', 'Metric'])['Sum'].sum().reset_index()
         
         fig4 = px.bar(
@@ -178,10 +177,10 @@ with tab4:
     else:
         st.success("✅ No non-score issues found for this specific filter combination!")
 
-# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (NEW) ---
+# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (UPDATED) ---
 with tab5:
-    st.subheader("⚖️ Critique Density vs. Evaluation Scores")
-    st.markdown("Identify if higher frequencies of keywords (*Howevers, Shortcomings, etc.*) directly correlate with drops in evaluation scores over the years.")
+    st.subheader("⚖️ Critique Density vs. Evaluation Scores Dynamics")
+    st.markdown("Analyze metrics and scores together to identify trends and negative correlations.")
     
     # 1. Calculate Average Score per Year
     df_score_trend = df_filtered.groupby('Year').agg(
@@ -198,35 +197,74 @@ with tab5:
     df_issue_trend['Mean Appearance'] = df_issue_trend['issue_sum'] / df_issue_trend['issue_count']
     
     if not df_score_trend.empty and not df_issue_trend.empty:
-        # Create a side-by-side view to easily track macro behaviors
+        # Prepare and merge consolidated data
+        df_issue_pivot = df_issue_trend.pivot(index='Year', columns='Metric', values='Mean Appearance').reset_index()
+        df_combined = pd.merge(df_score_trend[['Year', 'Average Score']], df_issue_pivot, on='Year', how='outer').sort_values('Year')
+        critique_metrics = [col for col in df_issue_pivot.columns if col != 'Year']
+        
+        # Display side-by-side updated graphs
         col_left, col_right = st.columns(2)
         
         with col_left:
-            fig_score = px.line(
-                df_score_trend, x='Year', y='Average Score', 
-                title="Global Average Score Evolution", markers=True
+            st.markdown("##### 1. Unified Temporal Chart (Dual Y-Axis)")
+            # Using make_subplots to cleanly overlay different data dimensions
+            fig_combined = make_subplots(specs=[[{"secondary_y": True}]])
+            
+            # Primary axis: Average Score (Vibrant Green)
+            fig_combined.add_trace(
+                go.Scatter(
+                    x=df_combined['Year'], y=df_combined['Average Score'], 
+                    name="Average Score (Left Axis)", mode='lines+markers',
+                    line=dict(color="#2ca02c", width=4)
+                ),
+                secondary_y=False,
             )
-            # FIXED: Changed linewidth to line_width
-            fig_score.update_traces(line_color="#2ca02c", line_width=3) 
-            st.plotly_chart(fig_score, use_container_width=True)
+            
+            # Secondary axis: Critique Metrics
+            for metric in critique_metrics:
+                fig_combined.add_trace(
+                    go.Scatter(
+                        x=df_combined['Year'], y=df_combined[metric], 
+                        name=f"Critique: {metric} (Right Axis)", mode='lines+markers'
+                    ),
+                    secondary_y=True,
+                )
+                
+            fig_combined.update_layout(
+                title_text="Scores & Critiques Over Time",
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            fig_combined.update_yaxes(title_text="<b>Average Score</b> (Green)", secondary_y=False)
+            fig_combined.update_yaxes(title_text="<b>Critique Mean Appearance</b> (Others)", secondary_y=True)
+            st.plotly_chart(fig_combined, use_container_width=True)
             
         with col_right:
-            fig_issue = px.line(
-                df_issue_trend, x='Year', y='Mean Appearance', color='Metric', 
-                title="Critique Keywords: Mean Density per Evaluation", markers=True
+            st.markdown("##### 2. Direct Correlation Chart (X: Score, Y: Critique)")
+            
+            # Melt the pivot data to easily feed Plotly Express color parameter
+            df_melted = df_combined.melt(
+                id_vars=['Year', 'Average Score'], 
+                value_vars=critique_metrics, 
+                var_name='Critique Metric', 
+                value_name='Mean Appearance'
             )
-            fig_issue.update_layout(yaxis_title="Mean Appearance (Σ Sum / Σ Count)")
-            st.plotly_chart(fig_issue, use_container_width=True)
+            
+            fig_corr = px.scatter(
+                df_melted, 
+                x='Average Score', 
+                y='Mean Appearance', 
+                color='Critique Metric',
+                hover_data=['Year'],
+                title="Critique Frequency (Y) plotted against Average Score (X)",
+                labels={'Average Score': 'Average Score (X Axis)', 'Mean Appearance': 'Critique Mean Appearance (Y Axis)'}
+            )
+            # Make markers stand out
+            fig_corr.update_traces(marker=dict(size=11, line=dict(width=1, color='DarkSlateGrey')))
+            st.plotly_chart(fig_corr, use_container_width=True)
             
         # 3. Dynamic Correlation Data Table
         st.markdown("##### 📋 Consolidated Correlation Matrix")
-        df_issue_pivot = df_issue_trend.pivot(index='Year', columns='Metric', values='Mean Appearance').reset_index()
-        df_combined = pd.merge(df_score_trend[['Year', 'Average Score']], df_issue_pivot, on='Year', how='outer')
-        
-        # Sort chronologically
-        df_combined = df_combined.sort_values('Year')
-        
-        # Automatically format all generated metric float columns to 3 decimals
         float_cols = [col for col in df_combined.columns if col != 'Year']
         st.dataframe(
             df_combined.style.format({col: '{:.3f}' for col in float_cols}), 
