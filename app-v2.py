@@ -177,7 +177,7 @@ with tab4:
     else:
         st.success("✅ No non-score issues found for this specific filter combination!")
 
-# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (UPDATED FOR 'HOWEVERS') ---
+# --- TAB 5: SCORE VS CRITIQUE FREQUENCY (UPDATED: LINE & BAR) ---
 with tab5:
     st.subheader("⚖️ Critique Density vs. Evaluation Scores Dynamics")
     st.markdown("Analyze metrics and scores together to identify trends and negative correlations.")
@@ -241,30 +241,33 @@ with tab5:
         with col_right:
             st.markdown("##### 2. Direct Correlation Chart (X: Score, Y: Howevers)")
             
-            # Target metric string definition
             target_metric = 'Howevers' 
             
-            # Fallback handling in case the exact name in Excel capitalization differs (e.g., 'however', 'HOWEVERS')
+            # Fallback handling for text case matching
             if target_metric not in df_combined.columns:
-                # Try to find a case-insensitive match just in case
                 matched_cols = [c for c in df_combined.columns if target_metric.lower() in c.lower()]
                 if matched_cols:
                     target_metric = matched_cols[0]
             
             if target_metric in df_combined.columns:
-                fig_corr = px.scatter(
-                    df_combined, 
-                    x='Average Score', 
+                # To make the relationship readable, sort by Average Score ascending
+                df_sorted_by_score = df_combined.sort_values('Average Score')
+                
+                # Convert X-axis to string temporarily so Plotly treats the scores as distinct ranked groups
+                df_sorted_by_score['Score_Label'] = df_sorted_by_score['Average Score'].round(3).astype(str)
+                
+                fig_corr = px.bar(
+                    df_sorted_by_score, 
+                    x='Score_Label', 
                     y=target_metric, 
-                    hover_data=['Year'],
-                    title=f"'{target_metric}' Frequency (Y) plotted against Average Score (X)",
-                    labels={'Average Score': 'Average Score (X Axis)', target_metric: f'{target_metric} Mean Appearance (Y Axis)'}
+                    hover_data=['Year', 'Average Score'],
+                    title=f"Distribution of '{target_metric}' across Ranked Average Scores",
+                    labels={'Score_Label': 'Average Score (X Axis - Ranked)', target_metric: f'{target_metric} Mean Appearance (Y Axis)'}
                 )
-                # Style the markers and add a trend/line if necessary
-                fig_corr.update_traces(marker=dict(size=12, color='#d62728', line=dict(width=1, color='DarkSlateGrey')))
+                fig_corr.update_traces(marker_color='#d62728', marker_line_color='DarkSlateGrey', marker_line_width=1)
                 st.plotly_chart(fig_corr, use_container_width=True)
             else:
-                st.info(f"Could not render the scatter plot because the metric exact name '{target_metric}' was not found in this filtered slice.")
+                st.info(f"Could not render the chart because the metric exact name '{target_metric}' was not found.")
             
         # 3. Dynamic Correlation Data Table
         st.markdown("##### 📋 Consolidated Correlation Matrix")
