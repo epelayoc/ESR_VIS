@@ -1,0 +1,213 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{fontspec}
+
+% --- UNIVERSAL PREAMBLE BLOCK ---
+\usepackage[english, bidi=basic, provide=*]{babel}
+\babelprovide[import, onchar=ids fonts]{english}
+
+% Set default font to Noto Sans
+\babelfont{rm}{Noto Sans}
+
+\usepackage{amsmath}
+\usepackage{enumitem}
+\setlist[itemize]{label=-}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{titlesec}
+
+% Define color palette for code listings and visual accents
+\definecolor{codebg}{RGB}{248, 249, 250}
+\definecolor{codeframe}{RGB}{220, 224, 230}
+\definecolor{primary}{RGB}{31, 78, 121}
+\definecolor{secondary}{RGB}{89, 89, 89}
+\definecolor{keywordcolor}{RGB}{0, 102, 204}
+\definecolor{stringcolor}{RGB}{163, 21, 21}
+\definecolor{commentcolor}{RGB}{0, 128, 0}
+
+% Section styling
+\titleformat{\section}{\large\bfseries\color{primary}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\bfseries\color{primary}}{\thesubsection}{1em}{}
+
+% Configure listing environment for Python snippets
+\lstset{
+  language=Python,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{keywordcolor}\bfseries,
+  stringstyle=\color{stringcolor},
+  commentstyle=\color{commentcolor}\itshape,
+  numbers=none,
+  breaklines=true,
+  captionpos=b,
+  showstringspaces=false
+}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=primary,
+    pdftitle={ESR Viewer Dashboard Technical Documentation}
+}
+
+\title{\Huge\bfseries\color{primary} Technical Documentation \\[0.3em] \Large ESR Viewer --- R\&D Evaluation Dashboard}
+\author{\textbf{System Engineering \& Analytical Documentation}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document provides complete technical specifications for the \textbf{ESR Viewer} web platform. Built using Python, Streamlit, Pandas, Matplotlib, Seaborn, and Plotly, the platform enables interactive quantitative and qualitative analysis of Evaluation Summary Reports (ESR) across temporal, geographical, and categorical dimensions.
+\end{abstract}
+
+\vspace{1.5em}
+
+\section{Overview \& Objectives}
+
+The primary goal of the \textbf{ESR Viewer} application is to transform raw R\&D proposal evaluation data into actionable intelligence. Evaluation Summary Reports contain scores across multiple criteria (Blocks) as well as descriptive feedback (Issues/Remarks).
+
+Key operational capabilities include:
+\begin{itemize}
+    \item Multi-dimensional filtering across Area, Action/Project Type, and Evaluation Blocks.
+    \item Longitudinal analysis of score progressions over time.
+    \item Benchmarking of subject areas via unified global heatmaps.
+    \item Evaluation volume tracking and call breakdown.
+    \item Qualitative critique density analysis and correlation modeling with numerical scores.
+\end{itemize}
+
+\section{System Architecture \& Tech Stack}
+
+The application follows a reactive, single-page dashboard design powered by Streamlit and standard Python data science libraries:
+
+\begin{table}[htbp]
+\centering
+\caption{System Component Matrix}
+\vspace{0.5em}
+\begin{tabular}{@{}llp{8cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Technology} & \textbf{Role in System} \\
+\midrule
+UI Framework & Streamlit 1.x & State management, sidebar layout, dynamic multi-tab presentation. \\
+Data Processing & Pandas & Data loading, cleaning, aggregation, dynamic pivoting, and merging. \\
+Static Rendering & Matplotlib \& Seaborn & Generation of annotated heatmaps and clean standard line plots. \\
+Interactive Charts & Plotly Express \& GO & Multi-axis time series, stacked bars, and grouped issue charts. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Input Data Specification}
+
+The system ingests tabular data from an Excel dataset formatted as long/tidy data (\texttt{esr\_data\_long.xlsx}). 
+
+\begin{table}[htbp]
+\centering
+\caption{Data Schema Requirements}
+\vspace{0.5em}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Field Name} & \textbf{Data Type} & \textbf{Description} \\
+\midrule
+\texttt{Year} & String / Numeric & Year of evaluation (cast to string upon import). \\
+\texttt{Area} & String & R\&D domain or scientific panel category. \\
+\texttt{Type} & String & Action scheme or project type (e.g., RIA, IA, CSA). \\
+\texttt{Block} & String & Evaluation criterion (e.g., Excellence, Impact). \\
+\texttt{Call} & String & Specific funding call identifier. \\
+\texttt{Metric} & String & Distinguishes numerical scores (\texttt{Score}) from critique types. \\
+\texttt{Sum} & Numeric & Total aggregated value or frequency count for the row group. \\
+\texttt{Count} & Numeric & Total evaluation instances represented in the row group. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Core Software Architecture \& Workflow}
+
+\subsection{Data Ingestion \& Caching}
+To optimize UI responsiveness, data loading is cached using Streamlit's native memory management decorators.
+
+\begin{lstlisting}
+file_path = "esr_data_long.xlsx"
+
+@st.cache_data
+def load_data(path):
+    df = pd.read_excel(path)
+    df['Year'] = df['Year'].astype(str)
+    return df
+\end{lstlisting}
+
+If the source dataset is missing, the platform catches \texttt{FileNotFoundError} gracefully, rendering an error alert and terminating script execution via \texttt{st.stop()}.
+
+\subsection{Data Partitioning \& Filter Cascade}
+The dataset is split into two functional subsets:
+\begin{enumerate}
+    \item \textbf{Scores Dataset (\texttt{df\_scores})}: Rows where \texttt{Metric == 'Score'}.
+    \item \textbf{Issues Dataset (\texttt{df\_issues})}: Rows representing qualitative observations (\texttt{Metric != 'Score'}).
+\end{enumerate}
+
+Sidebar widgets provide reactive controls:
+\begin{itemize}
+    \item \textbf{Area}: Single selection dropdown with default "All".
+    \item \textbf{Type}: Single selection dropdown with default "All".
+    \item \textbf{Block}: Multi-select widget initialized to select all available blocks.
+\end{itemize}
+
+\section{Visual Analytics Modules (Tabs Breakdown)}
+
+The user interface partitions insights into five dedicated analytical perspectives.
+
+\subsection{Tab 1: Trend Analysis (Temporal Evolution)}
+Computes the total sum and count grouped by \texttt{Year} and \texttt{Block} to render mean score evolution curves:
+\begin{equation}
+\text{Average Score} = \frac{\sum \text{Sum}}{\sum \text{Count}}
+\end{equation}
+The output is rendered as a Seaborn multi-line plot displaying score trajectories across years for selected evaluation criteria.
+
+\subsection{Tab 2: Strengths Map (Heatmap Matrix)}
+Generates a global overview matrix comparing performance across all \texttt{Area} domains versus \texttt{Block} criteria.
+\begin{itemize}
+    \item \textbf{Intentional Bypass}: The user's active \texttt{Area} filter is bypassed in this view to allow context-aware benchmarking against global averages.
+    \item \textbf{Visualization}: Annotated Seaborn heatmap using the \texttt{RdYlGn} diverging palette.
+\end{itemize}
+
+\subsection{Tab 3: Volume \& Call Distribution}
+Presents project evaluation counts grouped by evaluation year and specific funding calls. Displayed using a Plotly interactive stacked bar chart.
+
+\subsection{Tab 4: Non-Score Issue Analyzer}
+Aggregates non-score issue occurrences across evaluation criteria blocks (\texttt{Block}) and observation types (\texttt{Metric}), providing insight into critical bottlenecks or common proposal weaknesses.
+
+\subsection{Tab 5: Score vs. Critique Frequency Dynamics}
+Analyzes the potential impact of critique density on score outcomes.
+
+\begin{enumerate}
+    \item \textbf{Unified Dual Y-Axis Chart}: Displays overall average score on the primary vertical axis (bold line) alongside normalized mean appearances of various critique keywords on the secondary vertical axis.
+    \item \textbf{Statistical Correlation Heatmap}: Computes Pearson correlation coefficients ($r$) between mean scores and critique metrics:
+    \begin{equation}
+    r = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum (x_i - \bar{x})^2 \sum (y_i - \bar{y})^2}}
+    \end{equation}
+    Rendered on a bounded scale $[-1.0, 1.0]$ using a \texttt{coolwarm} color scheme.
+    \item \textbf{Consolidated Data Table}: Formatted numerical table formatted to 3 decimal places for detailed audit.
+\end{enumerate}
+
+\section{Deployment \& Local Execution}
+
+To launch the dashboard locally:
+
+\begin{enumerate}
+    \item Install required Python dependencies:
+\begin{lstlisting}[language=bash]
+pip install streamlit pandas openpyxl matplotlib seaborn plotly
+\end{lstlisting}
+    \item Ensure \texttt{esr\_data\_long.xlsx} and \texttt{form.jpg} are present in the working directory.
+    \item Launch the Streamlit server:
+\begin{lstlisting}[language=bash]
+streamlit run app.py
+\end{lstlisting}
+\end{enumerate}
+
+\end{document}
